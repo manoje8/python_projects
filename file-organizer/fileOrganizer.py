@@ -30,8 +30,6 @@ class FileOrganizer:
 
             fileList = [file for file in os.listdir(self.dir)]
 
-            print(fileList)
-
             if not fileList:
                 logging.warning(f"No file found in {self.dir}")
 
