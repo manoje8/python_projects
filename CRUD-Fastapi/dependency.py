@@ -1,4 +1,4 @@
-from backend.database import SessionLocal
+from database import SessionLocal
 
 
 def db_connect():

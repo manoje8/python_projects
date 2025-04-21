@@ -1,9 +1,10 @@
-from fastapi import FastAPI, Depends, HTTPException
-from backend.routers import user_router
-from backend import database, models
+from fastapi import FastAPI
+from routers.user_router import router
+from database import engine
+from models import Base
 
 # Table creation
-models.Base.metadata.create_all(bind=database.engine)
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Simple CRUD Methods")
 
@@ -12,5 +13,5 @@ app = FastAPI(title="Simple CRUD Methods")
 async def root():
     return {"message": "Hello World"}
 
-app.include_router(user_router.router)
+app.include_router(router)
 
