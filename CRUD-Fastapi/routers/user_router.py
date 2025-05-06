@@ -1,49 +1,63 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from dependency import db_connect
-from controller.user_service import UserService
-from schema import UserResponse, User
+from dbConfig.dependency import db_connect
+from service.user_service import UserService
+from schema.user_schema import UserResponse, User
+import logging
 
-router = APIRouter(prefix='/users', tags=['users'])
 
-@router.post("/", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+logger = logging.getLogger(__name__)
+user_router = APIRouter(prefix='/users', tags=['users'])
+
+
+@user_router.get("/", response_model=UserResponse)
+async def fetch_users(db: Session = Depends(db_connect)):
+    try:
+        return db.query(User).all()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=e)
+
+
+@user_router.post("/", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def create_user(user: User, db: Session = Depends(db_connect)):
-    db_user = UserService.get_user_by_email(db, email=user.email)
-    if db_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
-    return UserService.create(db, user)
+    try:
+        db_user = UserService.get_user_by_email(db, email=user.email)
+        if db_user:
+            raise HTTPException(status_code=400, detail="Email already registered")
+        user_created = UserService.create(db, user)
+        return user_created
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=e)
 
 
-@router.get("/{user_id}", response_model=UserResponse)
+@user_router.get("/{user_id}", response_model=UserResponse)
 async def get_user(user_id: int, db: Session = Depends(db_connect)):
-    find_user = db.query(User).filter(User.id == user_id).first()
+    find_user = UserService.get_user_by_id(db, user_id)
     if find_user is None:
         raise HTTPException(status_code=404, detail="User not found!")
     return find_user
 
 
-@router.put("/users/{user_id}", response_model=UserResponse)
+@user_router.put("/{user_id}", response_model=UserResponse)
 async def update_user(user_id: int, user: User, db: Session = Depends(db_connect)):
-    find_user = db.query(User).filter(User.id == user_id).first()
+    find_user = UserService.get_user_by_id(db, user_id)
     if find_user is None:
         raise HTTPException(status_code=404, detail="User not found!!")
 
-    if user.name is not None:
-        find_user.name = user.name
-    if user.email is not None:
-        existing_email = db.query(User).filter(User.email == user.email).first()
+    update_data = user.model_dump(exclude_unset=True)
 
-        if existing_email and existing_email.id != user_id:
-            raise HTTPException(status_code=400, detail="Email is already registered!")
-        find_user.email = user.email
+    for field, value in update_data.items():
+        if value is not None:
+            setattr(find_user, field, user)
+
     db.commit()
     db.refresh(find_user)
     return find_user
 
 
-@router.delete("/users/{user_id}")
+@user_router.delete("/{user_id}")
 async def delete_user(user_id: int, db: Session = Depends(db_connect)):
-    find_user = db.query(User).filter(User.id == user_id).first()
+    find_user = UserService.get_user_by_id(db, user_id)
 
     if find_user is None:
         raise HTTPException(status_code=404, detail="User not found!!!")
